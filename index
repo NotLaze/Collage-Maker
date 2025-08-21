@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Square Collage Builder</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --panel:#111827; /* gray-900 */
+      --muted:#1f2937; /* gray-800 */
+      --text:#e5e7eb; /* gray-200 */
+      --accent:#22d3ee; /* cyan-400 */
+      --accent-2:#a78bfa; /* violet-400 */
+      --danger:#ef4444; /* red-500 */
+      --ok:#10b981; /* emerald-500 */
+    }
+    html,body{height:100%;}
+    body{
+      margin:0; background:linear-gradient(180deg, var(--bg), #020617);
+      color:var(--text); font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      display:flex; flex-direction:column;
+    }
+    header{
+      padding:16px 20px; display:flex; align-items:center; gap:12px; border-bottom:1px solid #0b1220; background:rgba(2,6,23,.6); backdrop-filter: blur(6px);
+    }
+    header h1{font-size:18px; margin:0; letter-spacing:.4px; font-weight:700}
+    header .badge{font-size:12px; padding:3px 8px; border-radius:999px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#0b1220; font-weight:700}
+    main{display:grid; grid-template-columns: 320px 1fr; gap:16px; padding:16px; height:calc(100% - 66px);}
+    aside{
+      background:linear-gradient(180deg, rgba(34,211,238,.06), rgba(167,139,250,.05));
+      border:1px solid #13223a; border-radius:16px; padding:14px; overflow:auto;
+    }
+    .panel{background:var(--panel); border:1px solid #1b2944; border-radius:12px; padding:12px;}
+    .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:8px 0}
+    .row label{font-size:12px; opacity:.9}
+    .row input[type="range"]{width:100%}
+    .btn{appearance:none; border:1px solid #1b2944; background:#0b1326; color:var(--text); padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:700}
+    .btn:hover{border-color:#22406b}
+    .btn.primary{background:linear-gradient(90deg, rgba(34,211,238,.2), rgba(167,139,250,.2)); border-color:#214169}
+    .btn.danger{background:rgba(239,68,68,.15); border-color:#5d1c1c}
+    .btn.success{background:rgba(16,185,129,.15); border-color:#1b473b}
+    .tiny{font-size:12px; opacity:.8}
+    #thumbs{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;}
+    #thumbs .card{position:relative; border-radius:10px; overflow:hidden; border:1px solid #223357; aspect-ratio:1/1; background:#0c1426}
+    #thumbs img{width:100%; height:100%; object-fit:cover; display:block}
+    #thumbs .idx{position:absolute; top:6px; left:6px; background:rgba(2,6,23,.7); border:1px solid #1b2944; font-size:11px; padding:3px 6px; border-radius:999px}
+    #canvasWrap{position:relative; background:radial-gradient(1000px 400px at 20% 0%, rgba(34,211,238,.07), rgba(0,0,0,0)),
+                              radial-gradient(1000px 400px at 80% 100%, rgba(167,139,250,.08), rgba(0,0,0,0));
+      border:1px solid #13223a; border-radius:16px; padding:12px; display:flex; align-items:center; justify-content:center; min-height:300px;
+    }
+    canvas{max-width:100%; max-height:100%; border-radius:8px; background:#0b1326}
+    .legend{display:flex; gap:6px; flex-wrap:wrap}
+    kbd{border:1px solid #20355d; background:#0f1b36; padding:2px 6px; border-radius:6px; font-size:11px}
+    .hint{font-size:12px; opacity:.8}
+    .switch{display:inline-flex; align-items:center; gap:8px}
+    .switch input{accent-color: var(--accent)}
+    footer{padding:8px 16px; text-align:center; font-size:12px; opacity:.75}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Square Collage Builder</h1>
+    <span class="badge">GitHub Pages Ready</span>
+  </header>
+
+  <main>
+    <aside>
+      <div class="panel">
+        <div class="row" style="justify-content:space-between">
+          <label><strong>1) Add Photos</strong> (max 50)</label>
+          <button class="btn danger" id="clearBtn">Clear</button>
+        </div>
+        <input id="fileInput" type="file" accept="image/*" multiple />
+        <p class="tiny">Tip: You can drag & drop files onto the canvas too.</p>
+      </div>
+
+      <div class="panel">
+        <div class="row">
+          <label><strong>2) Layout</strong></label>
+        </div>
+        <div class="row">
+          <label>Canvas Size: <span id="sizeLabel">2048</span> px</label>
+          <input id="sizeRange" type="range" min="1024" max="4096" step="128" value="2048" />
+        </div>
+        <div class="row">
+          <label>Cell Gap: <span id="gapLabel">0</span> px</label>
+          <input id="gapRange" type="range" min="0" max="40" step="1" value="0" />
+        </div>
+        <div class="row switch">
+          <input id="swapMode" type="checkbox" />
+          <label>Reorder mode (drag to swap cells)</label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row">
+          <label><strong>3) Adjust Selected</strong></label>
+        </div>
+        <div class="row">
+          <label>Zoom: <span id="zoomLabel">1.00</span>x</label>
+          <input id="zoomRange" type="range" min="0.3" max="5" step="0.01" value="1" />
+        </div>
+        <div class="row">
+          <label>Offset X: <span id="oxLabel">0</span>%</label>
+          <input id="oxRange" type="range" min="-100" max="100" step="1" value="0" />
+        </div>
+        <div class="row">
+          <label>Offset Y: <span id="oyLabel">0</span>%</label>
+          <input id="oyRange" type="range" min="-100" max="100" step="1" value="0" />
+        </div>
+        <div class="row legend hint">
+          <span>Tips:</span>
+          <kbd>Click</kbd> select cell
+          <kbd>Drag</kbd> pan photo
+          <kbd>Wheel</kbd> zoom
+          <kbd>R</kbd> reset crop
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row" style="gap:6px; flex-wrap:wrap">
+          <button class="btn primary" id="exportBtn">Export PNG</button>
+          <button class="btn" id="saveBtn">Save Layout</button>
+          <input id="loadInput" type="file" accept="application/json" style="display:none" />
+          <button class="btn" id="loadBtn">Load Layout</button>
+        </div>
+        <p class="tiny">Export creates a high-resolution square PNG.
+          Save/Load lets you resume editing later.</p>
+      </div>
+
+      <div class="panel">
+        <div class="row"><label><strong>Photos</strong></label></div>
+        <div id="thumbs"></div>
+      </div>
+    </aside>
+
+    <section id="canvasWrap">
+      <canvas id="collage" width="2048" height="2048" aria-label="Collage Canvas"></canvas>
+    </section>
+  </main>
+
+  <footer>
+    Made for GitHub Pages · No backend · All processing happens in your browser.
+  </footer>
+
+  <script>
+    // --- Data Structures ---
+    const MAX_PHOTOS = 50;
+    const state = {
+      cells: [], // {src, img, scale, ox, oy}
+      grid: 1,
+      selected: -1,
+      gap: 0,
+      canvasSize: 2048,
+      dragging: false,
+      dragStart: null,
+      swapMode: false
+    };
+
+    // --- DOM ---
+    const canvas = document.getElementById('collage');
+    const ctx = canvas.getContext('2d');
+    const fileInput = document.getElementById('fileInput');
+    const thumbs = document.getElementById('thumbs');
+    const clearBtn = document.getElementById('clearBtn');
+    const sizeRange = document.getElementById('sizeRange');
+    const sizeLabel = document.getElementById('sizeLabel');
+    const gapRange = document.getElementById('gapRange');
+    const gapLabel = document.getElementById('gapLabel');
+    const zoomRange = document.getElementById('zoomRange');
+    const zoomLabel = document.getElementById('zoomLabel');
+    const oxRange = document.getElementById('oxRange');
+    const oyRange = document.getElementById('oyRange');
+    const oxLabel = document.getElementById('oxLabel');
+    const oyLabel = document.getElementById('oyLabel');
+    const exportBtn = document.getElementById('exportBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const loadBtn = document.getElementById('loadBtn');
+    const loadInput = document.getElementById('loadInput');
+    const swapMode = document.getElementById('swapMode');
+
+    function clamp(v,min,max){return Math.max(min, Math.min(max, v));}
+
+    function autoGrid(n){
+      return Math.ceil(Math.sqrt(Math.max(1,n)));
+    }
+
+    function rebuildGrid(){
+      const n = state.cells.length;
+      state.grid = autoGrid(n);
+      draw();
+      buildThumbs();
+    }
+
+    function addFiles(files){
+      const remain = MAX_PHOTOS - state.cells.length;
+      const list = Array.from(files).slice(0, remain);
+      list.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const src = reader.result;
+          const img = new Image();
+          img.onload = () => {
+            const cell = makeCell(src, img);
+            state.cells.push(cell);
+            rebuildGrid();
+          };
+          img.src = src;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function makeCell(src, img){
+      // Default scale to cover the square cell
+      const scaleFit = 1; // we compute relative to cell later during draw
+      return { src, img, scale:1, ox:0, oy:0 };
+    }
+
+    function buildThumbs(){
+      thumbs.innerHTML = '';
+      state.cells.forEach((c, i) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const im = document.createElement('img');
+        im.src = c.src;
+        const tag = document.createElement('div');
+        tag.className = 'idx';
+        tag.textContent = i+1;
+        card.appendChild(im);
+        card.appendChild(tag);
+        card.addEventListener('click', ()=>{ selectCell(i); });
+        thumbs.appendChild(card);
+      });
+    }
+
+    function selectCell(i){
+      state.selected = i;
+      syncSelectedUI();
+      draw();
+    }
+
+    function syncSelectedUI(){
+      const c = state.cells[state.selected];
+      if(!c){
+        zoomRange.value = 1; zoomLabel.textContent = '1.00';
+        oxRange.value = 0; oyRange.value = 0; oxLabel.textContent='0'; oyLabel.textContent='0';
+        return;
+      }
+      zoomRange.value = c.scale;
+      zoomLabel.textContent = c.scale.toFixed(2);
+      oxRange.value = c.ox*100; oyRange.value = c.oy*100;
+      oxLabel.textContent = Math.round(c.ox*100);
+      oyLabel.textContent = Math.round(c.oy*100);
+    }
+
+    function draw(){
+      const N = state.cells.length;
+      const G = state.grid;
+      const gap = state.gap;
+      const S = state.canvasSize;
+      canvas.width = canvas.height = S;
+
+      const cellSize = Math.floor((S - gap*(G-1)) / G);
+      ctx.clearRect(0,0,S,S);
+      ctx.fillStyle = '#0b1326';
+      ctx.fillRect(0,0,S,S);
+
+      for(let idx=0; idx<G*G; idx++){
+        const row = Math.floor(idx / G);
+        const col = idx % G;
+        const x = col * (cellSize + gap);
+        const y = row * (cellSize + gap);
+        // cell bg
+        ctx.fillStyle = '#0e162b';
+        ctx.fillRect(x, y, cellSize, cellSize);
+        ctx.strokeStyle = 'rgba(34,211,238,.25)';
+        ctx.lineWidth = (idx===state.selected)? 4 : 1;
+        ctx.strokeRect(x+0.5, y+0.5, cellSize-1, cellSize-1);
+
+        const cell = state.cells[idx];
+        if(!cell) continue;
+
+        const img = cell.img;
+        // compute scale to cover square then apply user scale
+        const coverScale = Math.max(cellSize / img.width, cellSize / img.height);
+        const userScale = cell.scale; // 1 by default
+        const scale = coverScale * userScale;
+        const drawW = img.width * scale;
+        const drawH = img.height * scale;
+
+        // Offsets are in percent of extra overflow beyond cell
+        const extraX = Math.max(0, drawW - cellSize);
+        const extraY = Math.max(0, drawH - cellSize);
+        const dx = x + (cellSize - drawW)/2 + extraX * cell.ox;
+        const dy = y + (cellSize - drawH)/2 + extraY * cell.oy;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, cellSize, cellSize);
+        ctx.clip();
+        ctx.drawImage(img, dx, dy, drawW, drawH);
+        ctx.restore();
+
+        // index badge
+        ctx.fillStyle = 'rgba(2,6,23,.7)';
+        ctx.fillRect(x+8, y+8, 26, 18);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '12px ui-sans-serif,system-ui';
+        ctx.fillText(String(idx+1), x+16, y+21);
+      }
+    }
+
+    // --- Events ---
+    fileInput.addEventListener('change', (e)=>{
+      if(!e.target.files) return;
+      addFiles(e.target.files);
+      fileInput.value = '';
+    });
+
+    clearBtn.addEventListener('click', ()=>{
+      state.cells = []; state.selected = -1; rebuildGrid();
+    });
+
+    sizeRange.addEventListener('input', ()=>{
+      state.canvasSize = parseInt(sizeRange.value,10); sizeLabel.textContent = state.canvasSize; draw();
+    });
+
+    gapRange.addEventListener('input', ()=>{
+      state.gap = parseInt(gapRange.value,10); gapLabel.textContent = state.gap; draw();
+    });
+
+    zoomRange.addEventListener('input', ()=>{
+      const c = state.cells[state.selected]; if(!c) return;
+      c.scale = parseFloat(zoomRange.value); zoomLabel.textContent = c.scale.toFixed(2); draw();
+    });
+
+    oxRange.addEventListener('input', ()=>{
+      const c = state.cells[state.selected]; if(!c) return;
+      c.ox = parseFloat(oxRange.value)/100; oxLabel.textContent = Math.round(c.ox*100); draw();
+    });
+
+    oyRange.addEventListener('input', ()=>{
+      const c = state.cells[state.selected]; if(!c) return;
+      c.oy = parseFloat(oyRange.value)/100; oyLabel.textContent = Math.round(c.oy*100); draw();
+    });
+
+    swapMode.addEventListener('change', ()=>{
+      state.swapMode = swapMode.checked;
+    });
+
+    // Canvas interactions
+    function getCellFromPoint(px, py){
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (px - rect.left) * scaleX;
+      const y = (py - rect.top) * scaleY;
+      const G = state.grid;
+      const gap = state.gap;
+      const S = state.canvasSize;
+      const cellSize = Math.floor((S - gap*(G-1)) / G);
+      const col = Math.floor(x / (cellSize + gap));
+      const row = Math.floor(y / (cellSize + gap));
+      if(col<0||row<0||col>=G||row>=G) return {idx:-1,x:0,y:0,cellSize};
+      const idx = row*G + col;
+      const cx = col*(cellSize+gap);
+      const cy = row*(cellSize+gap);
+      if(x>cx+cellSize || y>cy+cellSize) return {idx:-1,x:0,y:0,cellSize};
+      return {idx, x, y, cellSize, localX:x-cx, localY:y-cy};
+    }
+
+    canvas.addEventListener('mousedown', (e)=>{
+      const hit = getCellFromPoint(e.clientX, e.clientY);
+      if(hit.idx===-1) return;
+      if(state.swapMode){
+        // start swap drag
+        state.dragging = true; state.dragStart = {cell:hit.idx};
+        selectCell(hit.idx);
+        return;
+      }
+      selectCell(hit.idx);
+      state.dragging = true; state.dragStart = {x:e.clientX, y:e.clientY};
+    });
+
+    window.addEventListener('mousemove', (e)=>{
+      if(!state.dragging) return;
+      if(state.swapMode){
+        return; // swap happens on mouseup
+      }
+      const c = state.cells[state.selected]; if(!c) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const dx = (e.clientX - state.dragStart.x) * scaleX;
+      const dy = (e.clientY - state.dragStart.y) * scaleY;
+
+      // convert pixel move to percent relative to overflow
+      const G = state.grid; const gap = state.gap; const S = state.canvasSize;
+      const cellSize = Math.floor((S - gap*(G-1)) / G);
+      const coverScale = Math.max(cellSize / c.img.width, cellSize / c.img.height) * c.scale;
+      const drawW = c.img.width * coverScale;
+      const drawH = c.img.height * coverScale;
+      const extraX = Math.max(0, drawW - cellSize);
+      const extraY = Math.max(0, drawH - cellSize);
+      if(extraX>0) c.ox = clamp(c.ox + dx/extraX, -1, 1);
+      if(extraY>0) c.oy = clamp(c.oy + dy/extraY, -1, 1);
+      state.dragStart.x = e.clientX; state.dragStart.y = e.clientY;
+      syncSelectedUI();
+      draw();
+    });
+
+    window.addEventListener('mouseup', (e)=>{
+      if(!state.dragging) return;
+      if(state.swapMode){
+        const startCell = state.dragStart?.cell ?? -1;
+        const hit = getCellFromPoint(e.clientX, e.clientY);
+        const endCell = hit.idx;
+        if(startCell !== -1 && endCell !== -1 && endCell !== startCell){
+          const tmp = state.cells[startCell];
+          state.cells[startCell] = state.cells[endCell];
+          state.cells[endCell] = tmp;
+          selectCell(endCell);
+          buildThumbs();
+          draw();
+        }
+      }
+      state.dragging = false; state.dragStart = null;
+    });
+
+    canvas.addEventListener('wheel', (e)=>{
+      e.preventDefault();
+      if(state.selected<0) return;
+      const c = state.cells[state.selected]; if(!c) return;
+      const delta = -e.deltaY; // natural scroll
+      c.scale = clamp(c.scale + delta*0.001, 0.3, 5);
+      syncSelectedUI();
+      draw();
+    }, {passive:false});
+
+    // keyboard shortcuts
+    window.addEventListener('keydown',(e)=>{
+      if(e.key==='r' || e.key==='R'){
+        const c = state.cells[state.selected]; if(!c) return;
+        c.scale = 1; c.ox = 0; c.oy = 0; syncSelectedUI(); draw();
+      }
+    });
+
+    // Drag+drop files onto canvas
+    ['dragenter','dragover'].forEach(ev=>{
+      canvas.addEventListener(ev, (e)=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy';});
+    });
+    canvas.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      if(e.dataTransfer.files?.length){ addFiles(e.dataTransfer.files); }
+    });
+
+    // Export PNG
+    exportBtn.addEventListener('click', ()=>{
+      // Already drawn at the target resolution; just open download
+      canvas.toBlob((blob)=>{
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'collage_'+state.canvasSize+'px.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    });
+
+    // Save / Load layout (without embedding full images to keep file small)
+    saveBtn.addEventListener('click', ()=>{
+      // We embed DataURLs so it is portable; for 50 imgs this can be big, but offline-safe.
+      const data = {
+        v:1,
+        canvasSize: state.canvasSize,
+        gap: state.gap,
+        grid: state.grid,
+        cells: state.cells.map(c=>({src:c.src, scale:c.scale, ox:c.ox, oy:c.oy}))
+      };
+      const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'collage-layout.json'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    loadBtn.addEventListener('click', ()=> loadInput.click());
+    loadInput.addEventListener('change', (e)=>{
+      const file = e.target.files?.[0]; if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        try{
+          const data = JSON.parse(reader.result);
+          state.canvasSize = data.canvasSize ?? 2048; sizeRange.value = state.canvasSize; sizeLabel.textContent = state.canvasSize;
+          state.gap = data.gap ?? 0; gapRange.value = state.gap; gapLabel.textContent = state.gap;
+          state.cells = [];
+          const items = (data.cells||[]).slice(0, MAX_PHOTOS);
+          let loaded = 0;
+          items.forEach((ci, idx)=>{
+            const img = new Image();
+            img.onload = ()=>{
+              state.cells[idx] = {src:ci.src, img, scale:ci.scale??1, ox:ci.ox??0, oy:ci.oy??0};
+              loaded++;
+              if(loaded===items.length){ rebuildGrid(); }
+            };
+            img.src = ci.src;
+          });
+        }catch(err){ alert('Invalid layout file'); }
+      };
+      reader.readAsText(file);
+      loadInput.value = '';
+    });
+
+    // Initial draw
+    draw();
+  </script>
+</body>
+</html>
